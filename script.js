@@ -1,3 +1,4 @@
+// script.js
 document.addEventListener("DOMContentLoaded", () => {
   // Seleção dos elementos do DOM
   const estadoSelect = document.getElementById("estado");
@@ -20,9 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "https://dadosabertos.aneel.gov.br/api/3/action/datastore_search";
 
   async function fetchDistributorsAndStates() {
-    console.log("Chamando a Serverless Function para buscar distribuidoras...");
     const targetUrl = `${API_ENDPOINT}?resource_id=${AGENTES_RESOURCE_ID}&q=Distribui%C3%A7%C3%A3o&limit=500`;
-    // ESTA LINHA É A CORRETA PARA A VERCEl
     const url = `/api/proxy?targetUrl=${encodeURIComponent(targetUrl)}`;
 
     try {
@@ -50,9 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function fetchAllTariffs() {
-    console.log("Chamando a Serverless Function para buscar tarifas...");
     const targetUrl = `${API_ENDPOINT}?resource_id=${TARIFAS_RESOURCE_ID}&q="Convencional B1 Residencial"&limit=1000&sort=DatVigencia desc`;
-    // ESTA LINHA É A CORRETA PARA A VERCEl
     const url = `/api/proxy?targetUrl=${encodeURIComponent(targetUrl)}`;
 
     try {
