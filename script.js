@@ -1,4 +1,4 @@
-// Arquivo: script.js (Versão com jQuery/JSONP para o resource_id especificado)
+// Arquivo: script.js (Versão otimizada com API SQL e JSONP)
 $(document).ready(function () {
   // Elementos do DOM
   const estadoSelect = $("#estado");
@@ -16,9 +16,6 @@ $(document).ready(function () {
   // Armazena os dados processados da ANEEL
   let dadosDistribuidoras = {};
 
-  // O resource_id fornecido para as "Tarifas de Aplicação"
-  const TARIFAS_RESOURCE_ID = "fcf2906c-7c32-4b9b-a637-054e7a5234f4";
-
   // Função para buscar cidades (API do IBGE)
   async function fetchCitiesByState(stateUF) {
     if (!stateUF) return [];
@@ -35,70 +32,61 @@ $(document).ready(function () {
     }
   }
 
-  // Função principal para buscar e processar dados da ANEEL com JSONP
+  // Função principal para buscar e processar dados da ANEEL via SQL e JSONP
   function fetchAneelData() {
-    // Utiliza a chamada AJAX com JSONP conforme solicitado
+    // Query SQL para buscar as tarifas B1 Convencionais mais recentes para cada distribuidora
+    const sqlQuery = `
+      WITH TarifasRecentes AS (
+        SELECT
+          "SigAgente", "VlrTE", "VlrTUSD", "DatVigencia",
+          ROW_NUMBER() OVER(PARTITION BY "SigAgente" ORDER BY "DatVigencia" DESC) as rn
+        FROM "7f48a356-950c-4db3-94c7-1b0336245d"
+        WHERE "NomSubgrupo" = 'B1' AND "DscModalidadeTarifaria" = 'Convencional'
+      )
+      SELECT
+        agentes."SigUF" AS estado,
+        agentes."SigAgente" AS distribuidora,
+        (tarifas."VlrTE" + tarifas."VlrTUSD") / 1000 * (1 / (1 - 0.25)) AS tarifa_final_kwh
+      FROM "57a78e73-7711-422f-87d4-037130d2e5b4" AS agentes
+      JOIN TarifasRecentes AS tarifas ON agentes."SigAgente" = tarifas."SigAgente"
+      WHERE tarifas.rn = 1 AND agentes."NomTipoAgente" = 'Distribuição'
+      ORDER BY estado, distribuidora
+    `;
+
     return $.ajax({
-      url: "https://dadosabertos.aneel.gov.br/api/3/action/datastore_search",
+      url: "https://dadosabertos.aneel.gov.br/api/3/action/datastore_search_sql", //
       data: {
-        resource_id: TARIFAS_RESOURCE_ID,
-        q: '"B1" "Convencional"', // Adapta a consulta para buscar o subgrupo e modalidade corretos
-        limit: 5000, // Aumenta o limite para garantir que todos os dados relevantes sejam retornados
-        sort: "DatVigencia DESC", // Ordena pela data para pegar os mais recentes primeiro
+        sql: sqlQuery,
       },
-      dataType: "jsonp", // Utiliza JSONP para evitar erro de CORS
+      dataType: "jsonp", // Utiliza JSONP para evitar CORS
+      cache: true,
       success: function (data) {
         if (!data.success) {
-          console.error("API da ANEEL retornou success: false");
+          console.error("API da ANEEL (SQL) retornou success: false");
           return;
         }
-
-        const tarifasProcessadas = {};
-
-        // Processa os resultados para obter a tarifa mais recente de cada distribuidora
+        // Processa os resultados e agrupa por estado
         data.result.records.forEach((record) => {
-          const distribuidora = record.SigAgente;
-
-          // Como os dados já vêm ordenados, o primeiro que encontrarmos para cada agente será o mais recente.
-          if (
-            distribuidora &&
-            !tarifasProcessadas[distribuidora] &&
-            record.DscSubGrupo === "B1"
-          ) {
-            const estado = record.SigUF;
-            const valorTE = parseFloat(record.VlrTUSD) || 0; // Tarifa de Energia
-            const valorTUSD = parseFloat(record.VlrTE) || 0; // Tarifa de Uso do Sistema de Distribuição
-
-            // Fator de impostos aproximado (PIS/COFINS e ICMS)
-            const fatorImpostosAprox = 1 / (1 - 0.25);
-            const tarifaFinal = (valorTE + valorTUSD) * fatorImpostosAprox;
-
-            if (estado && !dadosDistribuidoras[estado]) {
+          const { estado, distribuidora, tarifa_final_kwh } = record;
+          if (estado && distribuidora && tarifa_final_kwh) {
+            if (!dadosDistribuidoras[estado]) {
               dadosDistribuidoras[estado] = [];
             }
-
-            if (
-              estado &&
-              !dadosDistribuidoras[estado].some((d) => d.nome === distribuidora)
-            ) {
-              dadosDistribuidoras[estado].push({
-                nome: distribuidora,
-                tarifa: tarifaFinal,
-              });
-            }
-            // Marca a distribuidora como processada para não sobrescrever com dados mais antigos
-            tarifasProcessadas[distribuidora] = true;
+            dadosDistribuidoras[estado].push({
+              nome: distribuidora,
+              tarifa: tarifa_final_kwh,
+            });
           }
         });
       },
       error: function (jqXHR, textStatus, errorThrown) {
         console.error(
-          "Falha ao buscar dados da ANEEL (JSONP):",
+          "Falha ao buscar dados da ANEEL (SQL/JSONP):",
           textStatus,
           errorThrown
         );
         alert(
-          "Não foi possível carregar os dados das distribuidoras. Tente recarregar a página."
+          "Não foi possível carregar os dados das distribuidoras. Verifique o console e tente recarregar a página."
         );
       },
     });
@@ -125,10 +113,7 @@ $(document).ready(function () {
     distribuidoraSelect.html(
       '<option value="" disabled selected>Distribuidora</option>'
     );
-    const distribuidorasDoEstado =
-      dadosDistribuidoras[estado]?.sort((a, b) =>
-        a.nome.localeCompare(b.nome)
-      ) || [];
+    const distribuidorasDoEstado = dadosDistribuidoras[estado] || [];
     distribuidorasDoEstado.forEach((dist) => {
       distribuidoraSelect.append(new Option(dist.nome, dist.nome));
     });
