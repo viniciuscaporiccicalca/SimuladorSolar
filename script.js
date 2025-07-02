@@ -18,15 +18,20 @@ document.addEventListener("DOMContentLoaded", () => {
   const TARIFAS_RESOURCE_ID = "7f48a356-950c-4db3-94c7-1b033626245d";
 
   async function fetchDistributorsAndStates() {
+    const aneelApiBaseUrl =
+      "https://dadosabertos.aneel.gov.br/api/3/action/datastore_search";
     const params = new URLSearchParams({
       resource_id: AGENTES_RESOURCE_ID,
       q: "Distribuição",
       limit: 500,
     });
-    const url = `/api/distribuidoras?${params.toString()}`;
+    const targetAneeUrl = `${aneelApiBaseUrl}?${params.toString()}`;
+    const proxyUrl = `/api/proxy?targetUrl=${encodeURIComponent(
+      targetAneeUrl
+    )}`;
 
     try {
-      const response = await fetch(url);
+      const response = await fetch(proxyUrl);
       if (!response.ok) throw new Error(`Erro na rede: ${response.status}`);
       const data = await response.json();
       if (!data.success) throw new Error("API de Agentes retornou erro.");
@@ -50,16 +55,21 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function fetchAllTariffs() {
+    const aneelApiBaseUrl =
+      "https://dadosabertos.aneel.gov.br/api/3/action/datastore_search";
     const params = new URLSearchParams({
       resource_id: TARIFAS_RESOURCE_ID,
       q: '"Convencional B1 Residencial"',
       limit: 1000,
       sort: "DatVigencia desc",
     });
-    const url = `/api/tarifas?${params.toString()}`;
+    const targetAneeUrl = `${aneelApiBaseUrl}?${params.toString()}`;
+    const proxyUrl = `/api/proxy?targetUrl=${encodeURIComponent(
+      targetAneeUrl
+    )}`;
 
     try {
-      const response = await fetch(url);
+      const response = await fetch(proxyUrl);
       if (!response.ok) throw new Error(`Erro na rede: ${response.status}`);
       const data = await response.json();
       if (!data.success) throw new Error("API de Tarifas retornou erro.");
