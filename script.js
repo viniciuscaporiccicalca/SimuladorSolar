@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // ETAPA 1: SELEÇÃO DOS ELEMENTOS DO DOM (sem alterações)
+  // Seleção dos elementos do DOM
   const estadoSelect = document.getElementById("estado");
   const distribuidoraSelect = document.getElementById("distribuidora");
   const infoEnergiaSection = document.getElementById("info-energia");
@@ -19,15 +19,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const API_ENDPOINT =
     "https://dadosabertos.aneel.gov.br/api/3/action/datastore_search";
 
-  // --- ETAPA 2: FUNÇÕES DE LÓGICA DA API (MODIFICADAS) ---
-
   async function fetchDistributorsAndStates() {
-    console.log("API Etapa 1: Buscando distribuidoras por estado...");
-
-    // --- MUDANÇA PARA VERCEEL ---
-    // A URL da ANEEL que queremos acessar
+    console.log("Chamando a Serverless Function para buscar distribuidoras...");
     const targetUrl = `${API_ENDPOINT}?resource_id=${AGENTES_RESOURCE_ID}&q=Distribui%C3%A7%C3%A3o&limit=500`;
-    // Chamamos nossa própria Serverless Function em /api/proxy
+    // ESTA LINHA É A CORRETA PARA A VERCEl
     const url = `/api/proxy?targetUrl=${encodeURIComponent(targetUrl)}`;
 
     try {
@@ -55,11 +50,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function fetchAllTariffs() {
-    console.log("API Etapa 2: Buscando tarifas...");
-
-    // --- MUDANÇA PARA VERCEEL ---
+    console.log("Chamando a Serverless Function para buscar tarifas...");
     const targetUrl = `${API_ENDPOINT}?resource_id=${TARIFAS_RESOURCE_ID}&q="Convencional B1 Residencial"&limit=1000&sort=DatVigencia desc`;
-    // Chamamos nossa própria Serverless Function novamente
+    // ESTA LINHA É A CORRETA PARA A VERCEl
     const url = `/api/proxy?targetUrl=${encodeURIComponent(targetUrl)}`;
 
     try {
@@ -86,89 +79,86 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // --- O RESTO DO ARQUIVO (ETAPAS 3, 4 e 5) PERMANECE EXATAMENTE IGUAL ---
+  // O resto do código (lógica da UI e inicialização) permanece o mesmo.
   function popularEstados() {
     estadoSelect.innerHTML =
       '<option value="" disabled selected>Estado</option>';
-    const estados = Object.keys(distributorsByState).sort();
-    estados.forEach((uf) => estadoSelect.add(new Option(uf, uf)));
-    estadoSelect.disabled = false;
+    const t = Object.keys(distributorsByState).sort();
+    t.forEach((t) => {
+      estadoSelect.add(new Option(t, t));
+    }),
+      (estadoSelect.disabled = !1);
   }
-  function popularDistribuidoras(uf) {
+  function popularDistribuidoras(t) {
     distribuidoraSelect.innerHTML =
       '<option value="" disabled selected>Distribuidora</option>';
-    const distribuidoras = distributorsByState[uf]?.sort() || [];
-    distribuidoras.forEach((nome) => {
-      if (tariffByDistributor[nome])
-        distribuidoraSelect.add(new Option(nome, nome));
-    });
-    distribuidoraSelect.disabled = false;
+    const o = distributorsByState[t]?.sort() || [];
+    o.forEach((t) => {
+      tariffByDistributor[t] && distribuidoraSelect.add(new Option(t, t));
+    }),
+      (distribuidoraSelect.disabled = !1);
   }
   function atualizarConsumoEstimado() {
-    const gasto = parseFloat(gastoSlider.value);
-    const tarifa = parseFloat(tarifaInput.value);
-    if (gasto > 0 && tarifa > 0) {
-      consumoKwhDisplay.textContent = `${(gasto / tarifa).toFixed(0)} kWh`;
-    } else {
-      consumoKwhDisplay.textContent = "-- kWh";
-    }
+    const t = parseFloat(gastoSlider.value),
+      o = parseFloat(tarifaInput.value);
+    t > 0 && o > 0
+      ? (consumoKwhDisplay.textContent = `${(t / o).toFixed(0)} kWh`)
+      : (consumoKwhDisplay.textContent = "-- kWh");
   }
   estadoSelect.addEventListener("change", () => {
-    popularDistribuidoras(estadoSelect.value);
-    infoEnergiaSection.classList.add("hidden");
-    gastoMensalSection.classList.add("hidden");
-    verResultadoBtn.disabled = true;
-  });
-  distribuidoraSelect.addEventListener("change", () => {
-    const distribuidoraSelecionada = distribuidoraSelect.value;
-    const tarifa = tariffByDistributor[distribuidoraSelecionada];
-    if (tarifa) {
-      fornecedorSpan.textContent = distribuidoraSelecionada;
-      tarifaInput.value = tarifa.toFixed(4);
-      infoEnergiaSection.classList.remove("hidden");
-      gastoMensalSection.classList.remove("hidden");
-      verResultadoBtn.disabled = false;
-      atualizarConsumoEstimado();
-    }
-  });
-  gastoSlider.addEventListener("input", () => {
-    sliderValueDisplay.textContent = `R$ ${parseFloat(
-      gastoSlider.value
-    ).toLocaleString("pt-BR")}`;
-    atualizarConsumoEstimado();
-  });
-  verResultadoBtn.addEventListener("click", () => {
-    const resultado = {
-      acessoRede: document.querySelector('input[name="acesso_rede"]:checked')
-        .value,
-      estado: estadoSelect.value,
-      distribuidora: distribuidoraSelect.value,
-      tarifa: parseFloat(tarifaInput.value),
-      gastoMensal: parseFloat(gastoSlider.value),
-      consumoEstimado: consumoKwhDisplay.textContent,
-    };
-    alert("Resultado pronto! (Confira os dados no console do navegador - F12)");
-    console.log("--- DADOS PARA RESULTADO ---", resultado);
-  });
-  async function init() {
-    estadoSelect.innerHTML = `<option>Carregando dados...</option>`;
-    estadoSelect.disabled = true;
-    distribuidoraSelect.disabled = true;
-    const [distributorsOk, tariffsOk] = await Promise.all([
-      fetchDistributorsAndStates(),
-      fetchAllTariffs(),
-    ]);
-    if (distributorsOk && tariffsOk) {
-      popularEstados();
-      sliderValueDisplay.textContent = `R$ ${parseFloat(
+    popularDistribuidoras(estadoSelect.value),
+      infoEnergiaSection.classList.add("hidden"),
+      gastoMensalSection.classList.add("hidden"),
+      (verResultadoBtn.disabled = !0);
+  }),
+    distribuidoraSelect.addEventListener("change", () => {
+      const t = distribuidoraSelect.value,
+        o = tariffByDistributor[t];
+      o &&
+        ((fornecedorSpan.textContent = t),
+        (tarifaInput.value = o.toFixed(4)),
+        infoEnergiaSection.classList.remove("hidden"),
+        gastoMensalSection.classList.remove("hidden"),
+        (verResultadoBtn.disabled = !1),
+        atualizarConsumoEstimado());
+    }),
+    gastoSlider.addEventListener("input", () => {
+      (sliderValueDisplay.textContent = `R$ ${parseFloat(
         gastoSlider.value
-      ).toLocaleString("pt-BR")}`;
-    } else {
-      estadoSelect.innerHTML = `<option>Erro ao carregar</option>`;
+      ).toLocaleString("pt-BR")}`),
+        atualizarConsumoEstimado();
+    }),
+    verResultadoBtn.addEventListener("click", () => {
+      const t = {
+        acessoRede: document.querySelector('input[name="acesso_rede"]:checked')
+          .value,
+        estado: estadoSelect.value,
+        distribuidora: distribuidoraSelect.value,
+        tarifa: parseFloat(tarifaInput.value),
+        gastoMensal: parseFloat(gastoSlider.value),
+        consumoEstimado: consumoKwhDisplay.textContent,
+      };
       alert(
-        "Falha ao carregar dados da ANEEL. Verifique o console (F12) e tente recarregar a página."
-      );
-    }
-  }
-  init();
+        "Resultado pronto! (Confira os dados no console do navegador - F12)"
+      ),
+        console.log("--- DADOS PARA RESULTADO ---", t);
+    }),
+    (async function () {
+      (estadoSelect.innerHTML = "<option>Carregando dados...</option>"),
+        (estadoSelect.disabled = !0),
+        (distribuidoraSelect.disabled = !0);
+      const [t, o] = await Promise.all([
+        fetchDistributorsAndStates(),
+        fetchAllTariffs(),
+      ]);
+      t && o
+        ? (popularEstados(),
+          (sliderValueDisplay.textContent = `R$ ${parseFloat(
+            gastoSlider.value
+          ).toLocaleString("pt-BR")}`))
+        : ((estadoSelect.innerHTML = "<option>Erro ao carregar</option>"),
+          alert(
+            "Falha ao carregar dados da ANEEL. Verifique o console (F12) e tente recarregar a página."
+          ));
+    })();
 });
