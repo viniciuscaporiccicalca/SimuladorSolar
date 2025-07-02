@@ -54,11 +54,11 @@ $(document).ready(function () {
     `;
 
     return $.ajax({
-      url: "https://dadosabertos.aneel.gov.br/api/3/action/datastore_search_sql", //
+      url: "https://dadosabertos.aneel.gov.br/api/3/action/datastore_search_sql",
       data: {
         sql: sqlQuery,
       },
-      dataType: "jsonp", // Utiliza JSONP para evitar CORS
+      dataType: "jsonp", // A chave da solução: Usa JSONP para evitar erros de CORS
       cache: true,
       success: function (data) {
         if (!data.success) {
