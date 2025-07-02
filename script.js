@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   // Seleção dos elementos do DOM
   const estadoSelect = document.getElementById("estado");
-  const cidadeSelect = document.getElementById("cidade"); // NOVO
+  const cidadeSelect = document.getElementById("cidade");
   const distribuidoraSelect = document.getElementById("distribuidora");
   const infoEnergiaSection = document.getElementById("info-energia");
   const fornecedorSpan = document.getElementById("fornecedor");
@@ -26,13 +26,11 @@ document.addEventListener("DOMContentLoaded", () => {
       q: "Distribuição",
       limit: 500,
     });
-    const targetAneeUrl = `${aneelApiBaseUrl}?${params.toString()}`;
-    const proxyUrl = `/api/proxy?targetUrl=${encodeURIComponent(
-      targetAneeUrl
-    )}`;
+    const aneelApiUrl = `${aneelApiBaseUrl}?${params.toString()}`;
 
     try {
-      const response = await fetch(proxyUrl);
+      // CHAMADA DIRETA SEM PROXY
+      const response = await fetch(aneelApiUrl);
       if (!response.ok) throw new Error(`Erro na rede: ${response.status}`);
       const data = await response.json();
       if (!data.success) throw new Error("API de Agentes retornou erro.");
@@ -64,13 +62,11 @@ document.addEventListener("DOMContentLoaded", () => {
       limit: 1000,
       sort: "DatVigencia desc",
     });
-    const targetAneeUrl = `${aneelApiBaseUrl}?${params.toString()}`;
-    const proxyUrl = `/api/proxy?targetUrl=${encodeURIComponent(
-      targetAneeUrl
-    )}`;
+    const aneelApiUrl = `${aneelApiBaseUrl}?${params.toString()}`;
 
     try {
-      const response = await fetch(proxyUrl);
+      // CHAMADA DIRETA SEM PROXY
+      const response = await fetch(aneelApiUrl);
       if (!response.ok) throw new Error(`Erro na rede: ${response.status}`);
       const data = await response.json();
       if (!data.success) throw new Error("API de Tarifas retornou erro.");
@@ -94,21 +90,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // NOVA FUNÇÃO PARA BUSCAR CIDADES
   async function fetchCitiesByState(stateUF) {
     if (!stateUF) return [];
     const ibgeApiUrl = `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${stateUF}/municipios`;
-    const proxyUrl = `/api/proxy?targetUrl=${encodeURIComponent(ibgeApiUrl)}`;
     try {
-      const response = await fetch(proxyUrl);
+      // CHAMADA DIRETA SEM PROXY
+      const response = await fetch(ibgeApiUrl);
       if (!response.ok)
         throw new Error(`Erro na rede (IBGE): ${response.status}`);
       const cities = await response.json();
-      // Ordena as cidades em ordem alfabética
       return cities.sort((a, b) => a.nome.localeCompare(b.nome));
     } catch (error) {
       console.error(`Falha ao buscar cidades para ${stateUF}:`, error);
-      return []; // Retorna array vazio em caso de erro
+      return [];
     }
   }
 
@@ -122,7 +116,6 @@ document.addEventListener("DOMContentLoaded", () => {
     estadoSelect.disabled = false;
   }
 
-  // NOVA FUNÇÃO PARA POPULAR CIDADES
   function popularCidades(cities) {
     cidadeSelect.innerHTML =
       '<option value="" disabled selected>Cidade</option>';
@@ -154,9 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // EVENTO DE MUDANÇA DO ESTADO (MODIFICADO)
   estadoSelect.addEventListener("change", async () => {
-    // Reseta e desabilita campos dependentes
     cidadeSelect.innerHTML = "<option>Carregando...</option>";
     cidadeSelect.disabled = true;
     distribuidoraSelect.innerHTML =
@@ -168,7 +159,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const selectedState = estadoSelect.value;
 
-    // Busca e popula cidades e distribuidoras em paralelo
     const [cities] = await Promise.all([
       fetchCitiesByState(selectedState),
       popularDistribuidoras(selectedState),
@@ -177,10 +167,7 @@ document.addEventListener("DOMContentLoaded", () => {
     popularCidades(cities);
   });
 
-  // NOVO EVENTO DE MUDANÇA DA CIDADE
   cidadeSelect.addEventListener("change", () => {
-    // A seleção da cidade não afeta a distribuidora (que depende do estado)
-    // Apenas garante que o botão de resultado seja liberado se tudo estiver ok
     if (distribuidoraSelect.value) {
       verResultadoBtn.disabled = false;
     }
@@ -195,7 +182,6 @@ document.addEventListener("DOMContentLoaded", () => {
       infoEnergiaSection.classList.remove("hidden");
       gastoMensalSection.classList.remove("hidden");
 
-      // Libera o botão apenas se uma cidade também foi selecionada
       if (cidadeSelect.value) {
         verResultadoBtn.disabled = false;
       }
@@ -210,13 +196,12 @@ document.addEventListener("DOMContentLoaded", () => {
     atualizarConsumoEstimado();
   });
 
-  // EVENTO DO BOTÃO (MODIFICADO)
   verResultadoBtn.addEventListener("click", () => {
     const t = {
       acessoRede: document.querySelector('input[name="acesso_rede"]:checked')
         .value,
       estado: estadoSelect.value,
-      cidade: cidadeSelect.value, // Adicionado
+      cidade: cidadeSelect.value,
       distribuidora: distribuidoraSelect.value,
       tarifa: parseFloat(tarifaInput.value),
       gastoMensal: parseFloat(gastoSlider.value),
@@ -229,7 +214,7 @@ document.addEventListener("DOMContentLoaded", () => {
   (async function () {
     estadoSelect.innerHTML = "<option>Carregando dados...</option>";
     estadoSelect.disabled = true;
-    cidadeSelect.disabled = true; // Adicionado
+    cidadeSelect.disabled = true;
     distribuidoraSelect.disabled = true;
 
     const [t, o] = await Promise.all([
@@ -245,7 +230,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       estadoSelect.innerHTML = "<option>Erro ao carregar</option>";
       alert(
-        "Falha ao carregar dados da ANEEL. Verifique o console (F12) e tente recarregar a página."
+        "Falha ao carregar dados da ANEEL/IBGE. Verifique o console (F12) para erros de CORS e tente recarregar a página."
       );
     }
   })();
