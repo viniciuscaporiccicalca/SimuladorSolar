@@ -1,4 +1,3 @@
-// script.js
 document.addEventListener("DOMContentLoaded", () => {
   // Seleção dos elementos do DOM
   const estadoSelect = document.getElementById("estado");
@@ -19,8 +18,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const TARIFAS_RESOURCE_ID = "7f48a356-950c-4db3-94c7-1b033626245d";
 
   async function fetchDistributorsAndStates() {
-    // ALTERAÇÃO: A URL agora aponta para um endpoint local que será
-    // redirecionado por um servidor de desenvolvimento (como o Vite).
     const params = new URLSearchParams({
       resource_id: AGENTES_RESOURCE_ID,
       q: "Distribuição",
@@ -53,7 +50,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function fetchAllTariffs() {
-    // ALTERAÇÃO: A URL também aponta para um endpoint local.
     const params = new URLSearchParams({
       resource_id: TARIFAS_RESOURCE_ID,
       q: '"Convencional B1 Residencial"',
@@ -87,55 +83,65 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // O resto do código (lógica da UI e inicialização) permanece o mesmo.
   function popularEstados() {
     estadoSelect.innerHTML =
       '<option value="" disabled selected>Estado</option>';
     const t = Object.keys(distributorsByState).sort();
     t.forEach((t) => {
       estadoSelect.add(new Option(t, t));
-    }),
-      (estadoSelect.disabled = !1);
+    });
+    estadoSelect.disabled = false;
   }
+
   function popularDistribuidoras(t) {
     distribuidoraSelect.innerHTML =
       '<option value="" disabled selected>Distribuidora</option>';
     const o = distributorsByState[t]?.sort() || [];
     o.forEach((t) => {
-      tariffByDistributor[t] && distribuidoraSelect.add(new Option(t, t));
-    }),
-      (distribuidoraSelect.disabled = !1);
+      if (tariffByDistributor[t]) {
+        distribuidoraSelect.add(new Option(t, t));
+      }
+    });
+    distribuidoraSelect.disabled = false;
   }
+
   function atualizarConsumoEstimado() {
-    const t = parseFloat(gastoSlider.value),
-      o = parseFloat(tarifaInput.value);
-    t > 0 && o > 0
-      ? (consumoKwhDisplay.textContent = `${(t / o).toFixed(0)} kWh`)
-      : (consumoKwhDisplay.textContent = "-- kWh");
+    const t = parseFloat(gastoSlider.value);
+    const o = parseFloat(tarifaInput.value);
+    if (t > 0 && o > 0) {
+      consumoKwhDisplay.textContent = `${(t / o).toFixed(0)} kWh`;
+    } else {
+      consumoKwhDisplay.textContent = "-- kWh";
+    }
   }
+
   estadoSelect.addEventListener("change", () => {
-    popularDistribuidoras(estadoSelect.value),
-      infoEnergiaSection.classList.add("hidden"),
-      gastoMensalSection.classList.add("hidden"),
-      (verResultadoBtn.disabled = !0);
+    popularDistribuidoras(estadoSelect.value);
+    infoEnergiaSection.classList.add("hidden");
+    gastoMensalSection.classList.add("hidden");
+    verResultadoBtn.disabled = true;
   });
+
   distribuidoraSelect.addEventListener("change", () => {
-    const t = distribuidoraSelect.value,
-      o = tariffByDistributor[t];
-    o &&
-      ((fornecedorSpan.textContent = t),
-      (tarifaInput.value = o.toFixed(4)),
-      infoEnergiaSection.classList.remove("hidden"),
-      gastoMensalSection.classList.remove("hidden"),
-      (verResultadoBtn.disabled = !1),
-      atualizarConsumoEstimado());
-  });
-  gastoSlider.addEventListener("input", () => {
-    (sliderValueDisplay.textContent = `R$ ${parseFloat(
-      gastoSlider.value
-    ).toLocaleString("pt-BR")}`),
+    const t = distribuidoraSelect.value;
+    const o = tariffByDistributor[t];
+    if (o) {
+      fornecedorSpan.textContent = t;
+      tarifaInput.value = o.toFixed(4);
+      infoEnergiaSection.classList.remove("hidden");
+      gastoMensalSection.classList.remove("hidden");
+      verResultadoBtn.disabled = false;
       atualizarConsumoEstimado();
+    }
   });
+
+  gastoSlider.addEventListener("input", () => {
+    sliderValueDisplay.textContent = `R$ ${parseFloat(
+      gastoSlider.value
+    ).toLocaleString("pt-BR")}`;
+    atualizarConsumoEstimado();
+  });
+
   verResultadoBtn.addEventListener("click", () => {
     const t = {
       acessoRede: document.querySelector('input[name="acesso_rede"]:checked')
@@ -146,25 +152,30 @@ document.addEventListener("DOMContentLoaded", () => {
       gastoMensal: parseFloat(gastoSlider.value),
       consumoEstimado: consumoKwhDisplay.textContent,
     };
-    alert("Resultado pronto! (Confira os dados no console do navegador - F12)"),
-      console.log("--- DADOS PARA RESULTADO ---", t);
+    alert("Resultado pronto! (Confira os dados no console do navegador - F12)");
+    console.log("--- DADOS PARA RESULTADO ---", t);
   });
+
   (async function () {
-    (estadoSelect.innerHTML = "<option>Carregando dados...</option>"),
-      (estadoSelect.disabled = !0),
-      (distribuidoraSelect.disabled = !0);
+    estadoSelect.innerHTML = "<option>Carregando dados...</option>";
+    estadoSelect.disabled = true;
+    distribuidoraSelect.disabled = true;
+
     const [t, o] = await Promise.all([
       fetchDistributorsAndStates(),
       fetchAllTariffs(),
     ]);
-    t && o
-      ? (popularEstados(),
-        (sliderValueDisplay.textContent = `R$ ${parseFloat(
-          gastoSlider.value
-        ).toLocaleString("pt-BR")}`))
-      : ((estadoSelect.innerHTML = "<option>Erro ao carregar</option>"),
-        alert(
-          "Falha ao carregar dados da ANEEL. Verifique o console (F12) e tente recarregar a página."
-        ));
-  })();
-});
+
+    if (t && o) {
+      popularEstados();
+      sliderValueDisplay.textContent = `R$ ${parseFloat(
+        gastoSlider.value
+      ).toLocaleString("pt-BR")}`;
+    } else {
+      estadoSelect.innerHTML = "<option>Erro ao carregar</option>";
+      alert(
+        "Falha ao carregar dados da ANEEL. Verifique o console (F12) e tente recarregar a página."
+      );
+    }
+  })(); // Fim da função de inicialização assíncrona
+}); // <<<---- VERIFIQUE SE ESTA LINHA FINAL ESTÁ PRESENTE NO SEU ARQUIVO
