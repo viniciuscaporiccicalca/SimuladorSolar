@@ -1,0 +1,16 @@
+# Arquivo: netlify.toml
+
+# Configuração de build (pode ajustar se necessário)
+[build]
+  command = "npm install"
+  publish = "." # Diretório onde está o index.html
+
+# Aponta para o diretório correto das funções
+[functions]
+  directory = "api"
+
+# Redireciona as chamadas de /api/* para a função correspondente
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
