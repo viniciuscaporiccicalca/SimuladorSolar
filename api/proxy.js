@@ -1,3 +1,4 @@
+// Arquivo: /api/proxy.js
 export default async function handler(request, response) {
   const { searchParams } = new URL(
     request.url,
@@ -13,7 +14,7 @@ export default async function handler(request, response) {
     const apiResponse = await fetch(targetUrl);
     if (!apiResponse.ok) {
       throw new Error(
-        `Erro na API da ANEEL: ${apiResponse.status} ${apiResponse.statusText}`
+        `Erro na API externa: ${apiResponse.status} ${apiResponse.statusText}`
       );
     }
     const data = await apiResponse.json();
