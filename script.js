@@ -1,6 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // --- ETAPA 1: SELEÇÃO DOS ELEMENTOS DO DOM ---
-  // Cada uma destas variáveis PRECISA encontrar um elemento com o ID correspondente no index.html
+  // ETAPA 1: SELEÇÃO DOS ELEMENTOS DO DOM (sem alterações)
   const estadoSelect = document.getElementById("estado");
   const distribuidoraSelect = document.getElementById("distribuidora");
   const infoEnergiaSection = document.getElementById("info-energia");
@@ -12,23 +11,25 @@ document.addEventListener("DOMContentLoaded", () => {
   const consumoKwhDisplay = document.getElementById("consumo-kwh");
   const verResultadoBtn = document.getElementById("ver-resultado");
 
-  // Armazenará os dados vindos da API
   let distributorsByState = {};
   let tariffByDistributor = {};
 
-  // IDs dos recursos da API ANEEL
   const AGENTES_RESOURCE_ID = "57a78e73-7711-422f-87d4-037130d2e5b4";
   const TARIFAS_RESOURCE_ID = "7f48a356-950c-4db3-94c7-1b033626245d";
-
-  // URL do Proxy para contornar o erro de CORS
-  const PROXY_URL = "https://cors-anywhere.herokuapp.com/";
-  // Endpoint base da ANEEL
   const API_ENDPOINT =
     "https://dadosabertos.aneel.gov.br/api/3/action/datastore_search";
 
-  // --- ETAPA 2: FUNÇÕES DE LÓGICA DA API ---
+  // --- ETAPA 2: FUNÇÕES DE LÓGICA DA API (MODIFICADAS) ---
+
   async function fetchDistributorsAndStates() {
-    const url = `${PROXY_URL}${API_ENDPOINT}?resource_id=${AGENTES_RESOURCE_ID}&q=Distribui%C3%A7%C3%A3o&limit=500`;
+    console.log("API Etapa 1: Buscando distribuidoras por estado...");
+
+    // --- MUDANÇA PARA VERCEEL ---
+    // A URL da ANEEL que queremos acessar
+    const targetUrl = `${API_ENDPOINT}?resource_id=${AGENTES_RESOURCE_ID}&q=Distribui%C3%A7%C3%A3o&limit=500`;
+    // Chamamos nossa própria Serverless Function em /api/proxy
+    const url = `/api/proxy?targetUrl=${encodeURIComponent(targetUrl)}`;
+
     try {
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Erro na rede: ${response.status}`);
@@ -54,7 +55,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function fetchAllTariffs() {
-    const url = `${PROXY_URL}${API_ENDPOINT}?resource_id=${TARIFAS_RESOURCE_ID}&q="Convencional B1 Residencial"&limit=1000&sort=DatVigencia desc`;
+    console.log("API Etapa 2: Buscando tarifas...");
+
+    // --- MUDANÇA PARA VERCEEL ---
+    const targetUrl = `${API_ENDPOINT}?resource_id=${TARIFAS_RESOURCE_ID}&q="Convencional B1 Residencial"&limit=1000&sort=DatVigencia desc`;
+    // Chamamos nossa própria Serverless Function novamente
+    const url = `/api/proxy?targetUrl=${encodeURIComponent(targetUrl)}`;
+
     try {
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Erro na rede: ${response.status}`);
@@ -79,7 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // --- ETAPA 3: FUNÇÕES DE LÓGICA DA UI ---
+  // --- O RESTO DO ARQUIVO (ETAPAS 3, 4 e 5) PERMANECE EXATAMENTE IGUAL ---
   function popularEstados() {
     estadoSelect.innerHTML =
       '<option value="" disabled selected>Estado</option>';
@@ -87,7 +94,6 @@ document.addEventListener("DOMContentLoaded", () => {
     estados.forEach((uf) => estadoSelect.add(new Option(uf, uf)));
     estadoSelect.disabled = false;
   }
-
   function popularDistribuidoras(uf) {
     distribuidoraSelect.innerHTML =
       '<option value="" disabled selected>Distribuidora</option>';
@@ -98,7 +104,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     distribuidoraSelect.disabled = false;
   }
-
   function atualizarConsumoEstimado() {
     const gasto = parseFloat(gastoSlider.value);
     const tarifa = parseFloat(tarifaInput.value);
@@ -108,16 +113,12 @@ document.addEventListener("DOMContentLoaded", () => {
       consumoKwhDisplay.textContent = "-- kWh";
     }
   }
-
-  // --- ETAPA 4: EVENT LISTENERS ---
-  // O erro acontece aqui se alguma das variáveis da ETAPA 1 for 'null'.
   estadoSelect.addEventListener("change", () => {
     popularDistribuidoras(estadoSelect.value);
     infoEnergiaSection.classList.add("hidden");
     gastoMensalSection.classList.add("hidden");
     verResultadoBtn.disabled = true;
   });
-
   distribuidoraSelect.addEventListener("change", () => {
     const distribuidoraSelecionada = distribuidoraSelect.value;
     const tarifa = tariffByDistributor[distribuidoraSelecionada];
@@ -130,14 +131,12 @@ document.addEventListener("DOMContentLoaded", () => {
       atualizarConsumoEstimado();
     }
   });
-
   gastoSlider.addEventListener("input", () => {
     sliderValueDisplay.textContent = `R$ ${parseFloat(
       gastoSlider.value
     ).toLocaleString("pt-BR")}`;
     atualizarConsumoEstimado();
   });
-
   verResultadoBtn.addEventListener("click", () => {
     const resultado = {
       acessoRede: document.querySelector('input[name="acesso_rede"]:checked')
@@ -151,8 +150,6 @@ document.addEventListener("DOMContentLoaded", () => {
     alert("Resultado pronto! (Confira os dados no console do navegador - F12)");
     console.log("--- DADOS PARA RESULTADO ---", resultado);
   });
-
-  // --- ETAPA 5: INICIALIZAÇÃO ---
   async function init() {
     estadoSelect.innerHTML = `<option>Carregando dados...</option>`;
     estadoSelect.disabled = true;
@@ -173,6 +170,5 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     }
   }
-
   init();
 });
