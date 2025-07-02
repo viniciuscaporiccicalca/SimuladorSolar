@@ -17,21 +17,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const AGENTES_RESOURCE_ID = "57a78e73-7711-422f-87d4-037130d2e5b4";
   const TARIFAS_RESOURCE_ID = "7f48a356-950c-4db3-94c7-1b033626245d";
-  const API_ENDPOINT =
-    "https://dadosabertos.aneel.gov.br/api/3/action/datastore_search";
 
   async function fetchDistributorsAndStates() {
-    const targetUrl = `${API_ENDPOINT}?resource_id=${AGENTES_RESOURCE_ID}&q=Distribui%C3%A7%C3%A3o&limit=500`;
-    const url = `/api/proxy?targetUrl=${encodeURIComponent(targetUrl)}`;
+    // ALTERAÇÃO: A URL agora aponta para um endpoint local que será
+    // redirecionado por um servidor de desenvolvimento (como o Vite).
+    const params = new URLSearchParams({
+      resource_id: AGENTES_RESOURCE_ID,
+      q: "Distribuição",
+      limit: 500,
+    });
+    const url = `/api/distribuidoras?${params.toString()}`;
 
     try {
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Erro na rede: ${response.status}`);
       const data = await response.json();
       if (!data.success) throw new Error("API de Agentes retornou erro.");
-      const records = data.result.records;
+
       distributorsByState = {};
-      records.forEach((agent) => {
+      data.result.records.forEach((agent) => {
         const state = agent.SigUF;
         const distributorName = agent.SigAgente;
         if (state && distributorName) {
@@ -49,14 +53,21 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function fetchAllTariffs() {
-    const targetUrl = `${API_ENDPOINT}?resource_id=${TARIFAS_RESOURCE_ID}&q="Convencional B1 Residencial"&limit=1000&sort=DatVigencia desc`;
-    const url = `/api/proxy?targetUrl=${encodeURIComponent(targetUrl)}`;
+    // ALTERAÇÃO: A URL também aponta para um endpoint local.
+    const params = new URLSearchParams({
+      resource_id: TARIFAS_RESOURCE_ID,
+      q: '"Convencional B1 Residencial"',
+      limit: 1000,
+      sort: "DatVigencia desc",
+    });
+    const url = `/api/tarifas?${params.toString()}`;
 
     try {
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Erro na rede: ${response.status}`);
       const data = await response.json();
       if (!data.success) throw new Error("API de Tarifas retornou erro.");
+
       tariffByDistributor = {};
       data.result.records.forEach((record) => {
         const distributorName = record.SigAgente;
@@ -107,55 +118,53 @@ document.addEventListener("DOMContentLoaded", () => {
       infoEnergiaSection.classList.add("hidden"),
       gastoMensalSection.classList.add("hidden"),
       (verResultadoBtn.disabled = !0);
-  }),
-    distribuidoraSelect.addEventListener("change", () => {
-      const t = distribuidoraSelect.value,
-        o = tariffByDistributor[t];
-      o &&
-        ((fornecedorSpan.textContent = t),
-        (tarifaInput.value = o.toFixed(4)),
-        infoEnergiaSection.classList.remove("hidden"),
-        gastoMensalSection.classList.remove("hidden"),
-        (verResultadoBtn.disabled = !1),
-        atualizarConsumoEstimado());
-    }),
-    gastoSlider.addEventListener("input", () => {
-      (sliderValueDisplay.textContent = `R$ ${parseFloat(
-        gastoSlider.value
-      ).toLocaleString("pt-BR")}`),
-        atualizarConsumoEstimado();
-    }),
-    verResultadoBtn.addEventListener("click", () => {
-      const t = {
-        acessoRede: document.querySelector('input[name="acesso_rede"]:checked')
-          .value,
-        estado: estadoSelect.value,
-        distribuidora: distribuidoraSelect.value,
-        tarifa: parseFloat(tarifaInput.value),
-        gastoMensal: parseFloat(gastoSlider.value),
-        consumoEstimado: consumoKwhDisplay.textContent,
-      };
-      alert(
-        "Resultado pronto! (Confira os dados no console do navegador - F12)"
-      ),
-        console.log("--- DADOS PARA RESULTADO ---", t);
-    }),
-    (async function () {
-      (estadoSelect.innerHTML = "<option>Carregando dados...</option>"),
-        (estadoSelect.disabled = !0),
-        (distribuidoraSelect.disabled = !0);
-      const [t, o] = await Promise.all([
-        fetchDistributorsAndStates(),
-        fetchAllTariffs(),
-      ]);
-      t && o
-        ? (popularEstados(),
-          (sliderValueDisplay.textContent = `R$ ${parseFloat(
-            gastoSlider.value
-          ).toLocaleString("pt-BR")}`))
-        : ((estadoSelect.innerHTML = "<option>Erro ao carregar</option>"),
-          alert(
-            "Falha ao carregar dados da ANEEL. Verifique o console (F12) e tente recarregar a página."
-          ));
-    })();
+  });
+  distribuidoraSelect.addEventListener("change", () => {
+    const t = distribuidoraSelect.value,
+      o = tariffByDistributor[t];
+    o &&
+      ((fornecedorSpan.textContent = t),
+      (tarifaInput.value = o.toFixed(4)),
+      infoEnergiaSection.classList.remove("hidden"),
+      gastoMensalSection.classList.remove("hidden"),
+      (verResultadoBtn.disabled = !1),
+      atualizarConsumoEstimado());
+  });
+  gastoSlider.addEventListener("input", () => {
+    (sliderValueDisplay.textContent = `R$ ${parseFloat(
+      gastoSlider.value
+    ).toLocaleString("pt-BR")}`),
+      atualizarConsumoEstimado();
+  });
+  verResultadoBtn.addEventListener("click", () => {
+    const t = {
+      acessoRede: document.querySelector('input[name="acesso_rede"]:checked')
+        .value,
+      estado: estadoSelect.value,
+      distribuidora: distribuidoraSelect.value,
+      tarifa: parseFloat(tarifaInput.value),
+      gastoMensal: parseFloat(gastoSlider.value),
+      consumoEstimado: consumoKwhDisplay.textContent,
+    };
+    alert("Resultado pronto! (Confira os dados no console do navegador - F12)"),
+      console.log("--- DADOS PARA RESULTADO ---", t);
+  });
+  (async function () {
+    (estadoSelect.innerHTML = "<option>Carregando dados...</option>"),
+      (estadoSelect.disabled = !0),
+      (distribuidoraSelect.disabled = !0);
+    const [t, o] = await Promise.all([
+      fetchDistributorsAndStates(),
+      fetchAllTariffs(),
+    ]);
+    t && o
+      ? (popularEstados(),
+        (sliderValueDisplay.textContent = `R$ ${parseFloat(
+          gastoSlider.value
+        ).toLocaleString("pt-BR")}`))
+      : ((estadoSelect.innerHTML = "<option>Erro ao carregar</option>"),
+        alert(
+          "Falha ao carregar dados da ANEEL. Verifique o console (F12) e tente recarregar a página."
+        ));
+  })();
 });
