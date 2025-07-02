@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simulador Solar</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <main>
+      <section id="simulador">
+        <div class="simulator-container">
+          <h2>Simulador Solar</h2>
+
+          <div class="step">
+            <h3>1. O local tem acesso à rede elétrica?</h3>
+            <div class="radio-group">
+              <label
+                ><input type="radio" name="acesso_rede" value="sim" checked />
+                Sim</label
+              >
+              <label
+                ><input type="radio" name="acesso_rede" value="nao" />
+                Não</label
+              >
+            </div>
+          </div>
+
+          <div class="step">
+            <h3>2. Onde pretende realizar a instalação?</h3>
+            <div class="location-group">
+              <select id="estado" name="estado">
+                <option value="" disabled selected>Estado</option>
+              </select>
+              <select id="cidade" name="cidade" disabled>
+                <option value="" disabled selected>Cidade</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="info-energia" class="step-info hidden">
+            <div class="info-grid">
+              <div class="info-box">
+                <label>Fornecedor de Energia</label>
+                <span id="fornecedor">--</span>
+              </div>
+              <div class="info-box">
+                <label>Tarifa com imposto</label>
+                <input type="number" id="tarifa" value="0.00" readonly />
+                <small>/ kWh</small>
+              </div>
+            </div>
+          </div>
+
+          <div id="gasto-mensal" class="step hidden">
+            <h3>3. Quanto você paga de energia no mês?</h3>
+            <div class="slider-container">
+              <div class="slider-labels">
+                <span>R$ 100</span>
+                <span id="slider-value" class="slider-value-display"
+                  >R$ 7.550</span
+                >
+                <span>R$ 15.000</span>
+              </div>
+              <input
+                type="range"
+                id="gasto-slider"
+                min="100"
+                max="15000"
+                value="7550"
+                class="slider"
+              />
+              <div class="consumo-estimado">
+                Consumo estimado: <strong id="consumo-kwh">-- kWh</strong>
+              </div>
+            </div>
+          </div>
+
+          <button
+            id="ver-resultado"
+            class="btn btn-primary result-btn"
+            disabled
+          >
+            Ver Resultado
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
