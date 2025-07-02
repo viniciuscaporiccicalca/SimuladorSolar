@@ -1,5 +1,6 @@
-// Arquivo: script.js (Versão com jQuery/Ajax/JSONP)
+// Arquivo: script.js (Versão com jQuery/JSONP para o resource_id especificado)
 $(document).ready(function () {
+  // Elementos do DOM
   const estadoSelect = $("#estado");
   const cidadeSelect = $("#cidade");
   const distribuidoraSelect = $("#distribuidora");
@@ -12,89 +13,13 @@ $(document).ready(function () {
   const consumoKwhDisplay = $("#consumo-kwh");
   const verResultadoBtn = $("#ver-resultado");
 
-  let distributorsByState = {};
-  let tariffByDistributor = {};
+  // Armazena os dados processados da ANEEL
+  let dadosDistribuidoras = {};
 
-  const AGENTES_RESOURCE_ID = "57a78e73-7711-422f-87d4-037130d2e5b4";
-  const TARIFAS_RESOURCE_ID = "7f48a356-950c-4db3-94c7-1b033626245d";
+  // O resource_id fornecido para as "Tarifas de Aplicação"
+  const TARIFAS_RESOURCE_ID = "fcf2906c-7c32-4b9b-a637-054e7a5234f4";
 
-  // Função para buscar distribuidores com jQuery/JSONP
-  function fetchDistributorsAndStates() {
-    return $.ajax({
-      url: "https://dadosabertos.aneel.gov.br/api/3/action/datastore_search",
-      data: {
-        resource_id: AGENTES_RESOURCE_ID,
-        q: "Distribuição",
-        limit: 500,
-      },
-      dataType: "jsonp",
-      success: function (data) {
-        if (!data.success) {
-          console.error(
-            "API da ANEEL (Distribuidores) retornou success: false"
-          );
-          return;
-        }
-        data.result.records.forEach((agent) => {
-          const state = agent.SigUF;
-          const distributorName = agent.SigAgente;
-          if (state && distributorName) {
-            if (!distributorsByState[state]) distributorsByState[state] = [];
-            if (!distributorsByState[state].includes(distributorName)) {
-              distributorsByState[state].push(distributorName);
-            }
-          }
-        });
-      },
-      error: function (jqXHR, textStatus, errorThrown) {
-        console.error(
-          "Falha na Etapa 1 (buscar distribuidoras):",
-          textStatus,
-          errorThrown
-        );
-      },
-    });
-  }
-
-  // Função para buscar tarifas com jQuery/JSONP
-  function fetchAllTariffs() {
-    return $.ajax({
-      url: "https://dadosabertos.aneel.gov.br/api/3/action/datastore_search",
-      data: {
-        resource_id: TARIFAS_RESOURCE_ID,
-        q: '"Convencional B1 Residencial"',
-        limit: 1000,
-        sort: "DatVigencia desc",
-      },
-      dataType: "jsonp",
-      success: function (data) {
-        if (!data.success) {
-          console.error("API da ANEEL (Tarifas) retornou success: false");
-          return;
-        }
-        data.result.records.forEach((record) => {
-          const distributorName = record.SigAgente;
-          if (distributorName && !tariffByDistributor[distributorName]) {
-            const valorTE = parseFloat(record.VlrTE) || 0;
-            const valorTUSD = parseFloat(record.VlrTUSD) || 0;
-            const tarifaBaseKWh = (valorTE + valorTUSD) / 1000;
-            const fatorImpostosAprox = 1 / (1 - 0.25);
-            tariffByDistributor[distributorName] =
-              tarifaBaseKWh * fatorImpostosAprox;
-          }
-        });
-      },
-      error: function (jqXHR, textStatus, errorThrown) {
-        console.error(
-          "Falha na Etapa 2 (buscar tarifas):",
-          textStatus,
-          errorThrown
-        );
-      },
-    });
-  }
-
-  // Função para buscar cidades (API do IBGE permite acesso direto com fetch)
+  // Função para buscar cidades (API do IBGE)
   async function fetchCitiesByState(stateUF) {
     if (!stateUF) return [];
     const ibgeApiUrl = `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${stateUF}/municipios`;
@@ -110,11 +35,80 @@ $(document).ready(function () {
     }
   }
 
+  // Função principal para buscar e processar dados da ANEEL com JSONP
+  function fetchAneelData() {
+    // Utiliza a chamada AJAX com JSONP conforme solicitado
+    return $.ajax({
+      url: "https://dadosabertos.aneel.gov.br/api/3/action/datastore_search",
+      data: {
+        resource_id: TARIFAS_RESOURCE_ID,
+        q: '"B1" "Convencional"', // Adapta a consulta para buscar o subgrupo e modalidade corretos
+        limit: 5000, // Aumenta o limite para garantir que todos os dados relevantes sejam retornados
+        sort: "DatVigencia DESC", // Ordena pela data para pegar os mais recentes primeiro
+      },
+      dataType: "jsonp", // Utiliza JSONP para evitar erro de CORS
+      success: function (data) {
+        if (!data.success) {
+          console.error("API da ANEEL retornou success: false");
+          return;
+        }
+
+        const tarifasProcessadas = {};
+
+        // Processa os resultados para obter a tarifa mais recente de cada distribuidora
+        data.result.records.forEach((record) => {
+          const distribuidora = record.SigAgente;
+
+          // Como os dados já vêm ordenados, o primeiro que encontrarmos para cada agente será o mais recente.
+          if (
+            distribuidora &&
+            !tarifasProcessadas[distribuidora] &&
+            record.DscSubGrupo === "B1"
+          ) {
+            const estado = record.SigUF;
+            const valorTE = parseFloat(record.VlrTUSD) || 0; // Tarifa de Energia
+            const valorTUSD = parseFloat(record.VlrTE) || 0; // Tarifa de Uso do Sistema de Distribuição
+
+            // Fator de impostos aproximado (PIS/COFINS e ICMS)
+            const fatorImpostosAprox = 1 / (1 - 0.25);
+            const tarifaFinal = (valorTE + valorTUSD) * fatorImpostosAprox;
+
+            if (estado && !dadosDistribuidoras[estado]) {
+              dadosDistribuidoras[estado] = [];
+            }
+
+            if (
+              estado &&
+              !dadosDistribuidoras[estado].some((d) => d.nome === distribuidora)
+            ) {
+              dadosDistribuidoras[estado].push({
+                nome: distribuidora,
+                tarifa: tarifaFinal,
+              });
+            }
+            // Marca a distribuidora como processada para não sobrescrever com dados mais antigos
+            tarifasProcessadas[distribuidora] = true;
+          }
+        });
+      },
+      error: function (jqXHR, textStatus, errorThrown) {
+        console.error(
+          "Falha ao buscar dados da ANEEL (JSONP):",
+          textStatus,
+          errorThrown
+        );
+        alert(
+          "Não foi possível carregar os dados das distribuidoras. Tente recarregar a página."
+        );
+      },
+    });
+  }
+
   function popularEstados() {
     estadoSelect.html('<option value="" disabled selected>Estado</option>');
-    const t = Object.keys(distributorsByState).sort();
-    t.forEach((t) => {
-      estadoSelect.append(new Option(t, t));
+    const estados = Object.keys(dadosDistribuidoras).sort();
+    estados.forEach((estado) => {
+      estadoSelect.append(new Option(estado, estado));
     });
     estadoSelect.prop("disabled", false);
   }
@@ -127,29 +121,31 @@ $(document).ready(function () {
     cidadeSelect.prop("disabled", false);
   }
 
-  function popularDistribuidoras(t) {
+  function popularDistribuidoras(estado) {
     distribuidoraSelect.html(
       '<option value="" disabled selected>Distribuidora</option>'
     );
-    const o = distributorsByState[t]?.sort() || [];
-    o.forEach((t) => {
-      if (tariffByDistributor[t]) {
-        distribuidoraSelect.append(new Option(t, t));
-      }
+    const distribuidorasDoEstado =
+      dadosDistribuidoras[estado]?.sort((a, b) =>
+        a.nome.localeCompare(b.nome)
+      ) || [];
+    distribuidorasDoEstado.forEach((dist) => {
+      distribuidoraSelect.append(new Option(dist.nome, dist.nome));
     });
-    distribuidoraSelect.prop("disabled", o.length === 0);
+    distribuidoraSelect.prop("disabled", distribuidorasDoEstado.length === 0);
   }
 
   function atualizarConsumoEstimado() {
-    const t = parseFloat(gastoSlider.val());
-    const o = parseFloat(tarifaInput.val());
-    if (t > 0 && o > 0) {
-      consumoKwhDisplay.text(`${(t / o).toFixed(0)} kWh`);
+    const gastoMensal = parseFloat(gastoSlider.val());
+    const tarifa = parseFloat(tarifaInput.val());
+    if (gastoMensal > 0 && tarifa > 0) {
+      consumoKwhDisplay.text(`${(gastoMensal / tarifa).toFixed(0)} kWh`);
     } else {
       consumoKwhDisplay.text("-- kWh");
     }
   }
 
+  // Event Handlers
   estadoSelect.on("change", async function () {
     cidadeSelect.html("<option>Carregando...</option>").prop("disabled", true);
     distribuidoraSelect
@@ -160,10 +156,9 @@ $(document).ready(function () {
     verResultadoBtn.prop("disabled", true);
 
     const selectedState = $(this).val();
-
+    popularDistribuidoras(selectedState);
     const cities = await fetchCitiesByState(selectedState);
     popularCidades(cities);
-    popularDistribuidoras(selectedState);
   });
 
   cidadeSelect.on("change", function () {
@@ -173,11 +168,15 @@ $(document).ready(function () {
   });
 
   distribuidoraSelect.on("change", function () {
-    const t = $(this).val();
-    const o = tariffByDistributor[t];
-    if (o) {
-      fornecedorSpan.text(t);
-      tarifaInput.val(o.toFixed(4));
+    const selectedDistName = $(this).val();
+    const selectedState = estadoSelect.val();
+    const distribuidoraData = dadosDistribuidoras[selectedState]?.find(
+      (d) => d.nome === selectedDistName
+    );
+
+    if (distribuidoraData) {
+      fornecedorSpan.text(selectedDistName);
+      tarifaInput.val(distribuidoraData.tarifa.toFixed(4));
       infoEnergiaSection.removeClass("hidden");
       gastoMensalSection.removeClass("hidden");
 
@@ -196,7 +195,7 @@ $(document).ready(function () {
   });
 
   verResultadoBtn.on("click", function () {
-    const t = {
+    const dadosParaResultado = {
       acessoRede: $('input[name="acesso_rede"]:checked').val(),
       estado: estadoSelect.val(),
       cidade: cidadeSelect.val(),
@@ -206,7 +205,7 @@ $(document).ready(function () {
       consumoEstimado: consumoKwhDisplay.text(),
     };
     alert("Resultado pronto! (Confira os dados no console do navegador - F12)");
-    console.log("--- DADOS PARA RESULTADO ---", t);
+    console.log("--- DADOS PARA RESULTADO ---", dadosParaResultado);
   });
 
   // Função de inicialização
@@ -217,19 +216,12 @@ $(document).ready(function () {
     cidadeSelect.prop("disabled", true);
     distribuidoraSelect.prop("disabled", true);
 
-    $.when(fetchDistributorsAndStates(), fetchAllTariffs())
-      .done(function () {
-        popularEstados();
-        sliderValueDisplay.text(
-          `R$ ${parseFloat(gastoSlider.val()).toLocaleString("pt-BR")}`
-        );
-      })
-      .fail(function () {
-        estadoSelect.html("<option>Erro ao carregar</option>");
-        alert(
-          "Falha ao carregar dados da ANEEL. Verifique o console do navegador para mais detalhes."
-        );
-      });
+    $.when(fetchAneelData()).done(function () {
+      popularEstados();
+      sliderValueDisplay.text(
+        `R$ ${parseFloat(gastoSlider.val()).toLocaleString("pt-BR")}`
+      );
+    });
   }
 
   init();
